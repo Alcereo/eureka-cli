@@ -10,6 +10,8 @@ import (
 
 const infoUrlAppNameRequiredCode = 19
 const infoUrlIdRequiredCode = 18
+const infoUrlInstanceNotFoundCode = 17
+
 
 var instancesListTemplate = "" +
 					"{{- printf \"%-20.20s\" \"APP NAME\" }}{{- printf \"%-10.10s\" \"STATUS\"  }}{{- printf \"%-18.18s\" \"ID\"  }}{{- printf \"%-18.18s\" \"IP ADDRESS\"  }}{{- printf \"%-18.18s\" \"PORT\"  }} \n" +
@@ -106,7 +108,7 @@ func main() {
 					Name:        "url",
 					Description: "Get url of concrete instance",
 					Usage:       "Get url of concrete instance",
-					ArgsUsage:   "$APP_NAME $INSTANCECE_ID",
+					ArgsUsage:   "$APP_NAME $INSTANCE_ID",
 					Action: func(context *cli.Context) error {
 
 						if context.Args().Get(0) == "" {
@@ -117,9 +119,31 @@ func main() {
 							cli.ShowCommandHelpAndExit(context, "url", infoUrlIdRequiredCode)
 						}
 
-						//TODO: EurekaService.getInstance() .Host + . Port
-						fmt.Println("APP:", context.String("app-name"))
-						fmt.Println("Some info url")
+						client := discovery.Client{
+							EurekaHost: eurekaHost,
+							EurekaPort: eurekaPort,
+						}
+
+						instances := client.GetInstanceByAppAndId(context.Args().Get(0), context.Args().Get(1))
+
+						if len(instances) == 0 {
+							return cli.NewExitError(
+								fmt.Sprintf(
+									"Instance with App name: \"%s\", and Id: \"%s\" not found",
+									context.Args().Get(0),
+									context.Args().Get(1),
+								),
+								infoUrlInstanceNotFoundCode,
+							)
+						}
+
+						instance := instances[0]
+
+						fmt.Printf(
+							"http://%s:%d",
+							instance.Ip,
+							instance.Port.Number,
+						)
 
 						return nil
 					},

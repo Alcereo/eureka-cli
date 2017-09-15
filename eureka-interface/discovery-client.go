@@ -75,15 +75,21 @@ func (client Client) GetInstanceByAppAndId(appName string, instanceId string) []
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 
-	var appResp SingleInstanceApplication
+	if len(bytes)==0{
 
-	json.Unmarshal(bytes, &appResp)
+		return []Instance{}
+	}else {
+		var appResp SingleInstanceApplication
 
-	instanceArr := []Instance{}
+		json.Unmarshal(bytes, &appResp)
 
-	instanceArr = append(instanceArr, appResp.Instance)
+		instanceArr := []Instance{}
 
-	return instanceArr
+		instanceArr = append(instanceArr, appResp.Instance)
+
+		return instanceArr
+	}
+
 }
 
 func (client Client) GetInstanceById(instanceId string) []Instance {
