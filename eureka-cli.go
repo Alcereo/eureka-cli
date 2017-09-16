@@ -14,11 +14,9 @@ const infoUrlInstanceNotFoundCode = 3
 const idEmptyErrorCode = 4
 const appNameEmptyErrorCode = 5
 
-
 var instancesListTemplate = "" +
-					"{{- printf \"%-20.20s\" \"APP NAME\" }}{{- printf \"%-10.10s\" \"STATUS\"  }}{{- printf \"%-35.35s\" \"ID\"  }}{{- printf \"%-18.18s\" \"IP ADDRESS\"  }}{{- printf \"%-18.18s\" \"PORT\"  }} \n" +
-	"{{range .Items}}{{- printf \"%-20.20s\"  .AppName    }}{{- printf \"%-10.10s\" .Status     }}{{- printf \"%-35.35s\"  .Id    }}{{- printf \"%-18.18s\"  .Ip            }}{{- printf \"%d\"  .Port.Number   }} \n{{end}}"
-
+		"{{- printf \"%-20.20s\" \"APP NAME\" }}{{- printf \"%-10.10s\" \"STATUS\"  }}{{- printf \"%-35.35s\" \"ID\"  }}{{- printf \"%-18.18s\" \"IP ADDRESS\"  }}{{- printf \"%-18.18s\" \"PORT\"  }} \n" +
+		"{{range .Items}}{{- printf \"%-20.20s\"  .AppName    }}{{- printf \"%-10.10s\" .Status     }}{{- printf \"%-35.35s\"  .Id    }}{{- printf \"%-18.18s\"  .Ip            }}{{- printf \"%d\"  .Port.Number   }} \n{{end}}"
 
 func main() {
 
@@ -27,7 +25,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "eureka-cli"
-	app.Version = "0.1"
+	app.HideVersion = true
 	app.Usage = "A command-line interface to perform with netflix eureka"
 
 	app.Flags = []cli.Flag{
@@ -51,7 +49,7 @@ func main() {
 		{
 			Name: "info",
 			Description: "Query info about instances \n\n" +
-				"Sample:\n    eureka info -a $APP_NAME -i $INSTANCE_ID",
+					"Sample:\n    eureka info -a $APP_NAME -i $INSTANCE_ID",
 			Usage: "Query info about instances",
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -96,12 +94,12 @@ func main() {
 					}
 				}
 
-				t,_ := template.New("instances").Parse(instancesListTemplate)
+				t, _ := template.New("instances").Parse(instancesListTemplate)
 
 				t.Execute(os.Stdout,
-					struct {
+						struct {
 						Items []discovery.Instance
-						}{Items:instances})
+					}{Items:instances})
 
 			},
 
@@ -146,7 +144,7 @@ func main() {
 						instance := instances[0]
 
 						fmt.Printf(
-							"http://%s:%d",
+							"http://%s:%d\n",
 							instance.Ip,
 							instance.Port.Number,
 						)
@@ -155,6 +153,7 @@ func main() {
 					},
 				},
 			},
+
 		},
 		{
 			Name: "wait",
@@ -182,11 +181,37 @@ func main() {
 					cli.ShowCommandHelpAndExit(context, "wait", idEmptyErrorCode)
 				}
 
-				fmt.Printf(
-					"Wait for instanceID: \"%s\" app name: \"%s\"...\n",
-					instanceId,
-					appName,
-				)
+				successFunction := func(instance discovery.Instance, start *time.Time) {
+
+					if start != nil {
+						fmt.Println("It took: ", time.Now().Sub(*start))
+					}
+
+					t, _ := template.New("instances").Parse(instancesListTemplate)
+
+					t.Execute(os.Stdout,
+							struct {
+							Items []discovery.Instance
+						}{
+							Items:append(make([]discovery.Instance, 0), instance),
+						})
+				}
+
+				foundInstanceFunction := func(client discovery.Client, function func(discovery.Instance)) bool {
+
+					instances := client.GetInstanceByAppAndId(appName, instanceId)
+
+					if len(instances) != 0 {
+						instance := instances[0]
+
+						if instance.Status == "UP" {
+							function(instance)
+							return true
+						}
+					}
+
+					return false
+				}
 
 				timeout := time.After(time.Second * time.Duration(context.Int("time")))
 				success := make(chan discovery.Instance)
@@ -197,42 +222,46 @@ func main() {
 					EurekaPort: eurekaPort,
 				}
 
+				if context.Int("time") == 0 {
+					if !foundInstanceFunction(
+						client,
+						func(instance discovery.Instance) {
+							successFunction(instance, nil)
+						},
+					){
+						return cli.NewExitError("Not found", timeoutErrorCode)
+					}
+					return nil
+				}
+
+				fmt.Printf(
+					"Wait for instanceID: \"%s\" app name: \"%s\"...\n",
+					instanceId,
+					appName,
+				)
+
 				go func() {
 					for {
-						instances := client.GetInstanceByAppAndId(appName, instanceId)
 
-						if len(instances) != 0 {
-							instance := instances[0]
-
-							if instance.Status == "UP" {
+						foundInstanceFunction(
+							client,
+							func(instance discovery.Instance) {
 								success <- instance
-							}
-						}
+							},
+						)
 
 						time.Sleep(1 * time.Second)
 					}
 				}()
 
 				select {
-				case <-timeout:{
-					return cli.NewExitError("Wait timout exit", timeoutErrorCode)
-				}
-				case instance := <-success:{
-
-					fmt.Println("It took: ", time.Now().Sub(start))
-
-					t,_ := template.New("instances").Parse(instancesListTemplate)
-
-					t.Execute(os.Stdout,
-							struct {
-							Items []discovery.Instance
-						}{
-								Items:append(make([]discovery.Instance, 0), instance),
-							})
-
-					return nil
-				}
-
+				case <-timeout: {
+						return cli.NewExitError("Wait timout exit", timeoutErrorCode)
+					}
+				case instance := <-success: {
+						successFunction(instance, &start)
+						return nil
+					}
 				}
 			},
 		},

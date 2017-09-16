@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 type Instance struct {
@@ -55,7 +56,7 @@ func (client *Client) GetInstanceByAppAndId(appName string, instanceId string) [
 		instanceId,
 	)
 
-	response := client.requestToEureka()
+	response := client.requestToEureka(true)
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -86,7 +87,7 @@ func (client *Client) GetInstanceById(instanceId string) []Instance {
 		instanceId,
 	)
 
-	response := client.requestToEureka()
+	response := client.requestToEureka(true)
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -111,7 +112,7 @@ func (client *Client) GetInstancesByApp(appName string) []Instance {
 		appName,
 	)
 
-	response := client.requestToEureka()
+	response := client.requestToEureka(true)
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -138,7 +139,7 @@ func (client *Client) GetInstances() []Instance {
 		client.EurekaPort,
 	)
 
-	response := client.requestToEureka()
+	response := client.requestToEureka(true)
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -159,7 +160,7 @@ func (client *Client) GetInstances() []Instance {
 }
 
 
-func (client Client) requestToEureka() *http.Response {
+func (client Client) requestToEureka(mayNotFound bool) *http.Response {
 
 	httpClient := &http.Client{}
 	url := client.URL
@@ -184,8 +185,16 @@ func (client Client) requestToEureka() *http.Response {
 				client.EurekaPort,
 			)
 
-			log.Fatalln("Cant connect to Eureka server at: ",url," - check connection")
+			fmt.Fprintln(os.Stderr, "   Cant connect to Eureka server at: ",url,", check connection\n" +
+					"   or enter other address by: -u -p global flags: \n" +
+					"       eureka-cli -u $HOST -p $PORT command")
+
+			os.Exit(1)
 		}
+	}
+
+	if response.StatusCode == 404 && mayNotFound {
+		return response
 	}
 
 	if response.StatusCode != 200 {
