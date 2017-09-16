@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-const timeoutErrorCode = 1
-const infoUrlInstanceNotFoundCode = 2
-const idEmptyErrorCode = 3
-const appNameEmptyErrorCode = 4
+const timeoutErrorCode = 2
+const infoUrlInstanceNotFoundCode = 3
+const idEmptyErrorCode = 4
+const appNameEmptyErrorCode = 5
 
 
 var instancesListTemplate = "" +

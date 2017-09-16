@@ -39,17 +39,15 @@ type ApplicationsResponse struct {
 	Message ApplicationMessage `json:"applications"`
 }
 
-
 type Client struct {
 	EurekaHost string
 	EurekaPort int
+	URL string
 }
 
-func (client Client) GetInstanceByAppAndId(appName string, instanceId string) []Instance {
+func (client *Client) GetInstanceByAppAndId(appName string, instanceId string) []Instance {
 
-	httpClient := &http.Client{}
-
-	url := fmt.Sprintf(
+	client.URL = fmt.Sprintf(
 		"http://%s:%d/eureka/apps/%s/%s",
 		client.EurekaHost,
 		client.EurekaPort,
@@ -57,20 +55,7 @@ func (client Client) GetInstanceByAppAndId(appName string, instanceId string) []
 		instanceId,
 	)
 
-	request, err := http.NewRequest(
-		"GET",
-		url,
-		nil)
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-
-	response, err := httpClient.Do(request)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+	response := client.requestToEureka()
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -92,30 +77,16 @@ func (client Client) GetInstanceByAppAndId(appName string, instanceId string) []
 
 }
 
-func (client Client) GetInstanceById(instanceId string) []Instance {
-	httpClient := &http.Client{}
+func (client *Client) GetInstanceById(instanceId string) []Instance {
 
-	url := fmt.Sprintf(
+	client.URL = fmt.Sprintf(
 		"http://%s:%d/eureka/instances/%s",
 		client.EurekaHost,
 		client.EurekaPort,
 		instanceId,
 	)
 
-	request, err := http.NewRequest(
-		"GET",
-		url,
-		nil)
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-
-	response, err := httpClient.Do(request)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+	response := client.requestToEureka()
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -131,31 +102,16 @@ func (client Client) GetInstanceById(instanceId string) []Instance {
 	return instanceArr
 }
 
-func (client Client) GetInstancesByApp(appName string) []Instance {
+func (client *Client) GetInstancesByApp(appName string) []Instance {
 
-	httpClient := &http.Client{}
-
-	url := fmt.Sprintf(
+	client.URL = fmt.Sprintf(
 		"http://%s:%d/eureka/apps/%s",
 		client.EurekaHost,
 		client.EurekaPort,
 		appName,
 	)
 
-	request, err := http.NewRequest(
-		"GET",
-		url,
-		nil)
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-
-	response, err := httpClient.Do(request)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+	response := client.requestToEureka()
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -174,30 +130,15 @@ func (client Client) GetInstancesByApp(appName string) []Instance {
 
 }
 
-func (client Client) GetInstances() []Instance {
+func (client *Client) GetInstances() []Instance {
 
-	httpClient := &http.Client{}
-
-	url := fmt.Sprintf(
+	client.URL = fmt.Sprintf(
 		"http://%s:%d/eureka/apps",
 		client.EurekaHost,
 		client.EurekaPort,
 	)
 
-	request, err := http.NewRequest(
-		"GET",
-		url,
-		nil)
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Accept", "application/json")
-
-	response, err := httpClient.Do(request)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+	response := client.requestToEureka()
 
 	bytes, _ := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -215,4 +156,42 @@ func (client Client) GetInstances() []Instance {
 	}
 
 	return instanceArr
+}
+
+
+func (client Client) requestToEureka() *http.Response {
+
+	httpClient := &http.Client{}
+	url := client.URL
+
+	request, err := http.NewRequest(
+		"GET",
+		url,
+		nil)
+
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Accept", "application/json")
+
+	response, err := httpClient.Do(request)
+
+
+	if err != nil {
+		if (response == nil){
+
+			url = fmt.Sprintf(
+				"http://%s:%d/",
+				client.EurekaHost,
+				client.EurekaPort,
+			)
+
+			log.Fatalln("Cant connect to Eureka server at: ",url," - check connection")
+		}
+	}
+
+	if response.StatusCode != 200 {
+		log.Fatalln("Request to ",url," return code: ", response.StatusCode)
+	}
+
+
+	return response
 }
