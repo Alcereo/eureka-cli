@@ -48,18 +48,6 @@ EUREKA-CLIENT-2     UP        client-2                           192.168.0.114  
 {}
 ```
 
-##### Wait for instance and request `/info` hook
-
-```bash
-> eureka-cli wait EUREKA-CLIENT-2 client-2 && wget -qO- $(eureka-cli info url EUREKA-CLIENT-2 client-2)/info
-
-Wait for instanceID: "client-2" app name: "EUREKA-CLIENT-2"...
-It took:  7.004323836s
-APP NAME            STATUS    ID                                 IP ADDRESS        PORT               
-EUREKA-CLIENT-2     UP        client-2                           192.168.0.114     38891 
-{}
-```
-
 ##### Quick check instance 
 ```bash
 > eureka-cli wait -t 0 EUREKA-CLIENT-2 client-2
